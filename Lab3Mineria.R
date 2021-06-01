@@ -1,17 +1,21 @@
 library(maxent)
-#install.packages("tm")
 library(tm)
 
 # Cargar Dataset de Rotten Tomatoes
-data <- read.csv("/home/gabriel/Descargas/rotten_tomatoes_critic_reviews.csv", fill=TRUE, header=TRUE, sep=",", row.names=NULL)
+allData <- read.csv("/home/gabriel/Descargas/rotten_tomatoes_critic_reviews.csv", fill=TRUE, header=TRUE, sep=",", row.names=NULL)
 
 ###Pre-procesamiento del dataset de Rotten Tomatoes
 
-# Eliminar todas las filas que presenten valores Vacios o 0 en su Review Score
-data <-data[data$review_score != "", ]
-
-# Eliminar todas las filas que presenten RatinScore de valor 0 
-data <- data[data$review_score != "0", ]
+# Eliminar todas las filas que presenten valores Vacios en sus Columnas
+allData$rotten_tomatoes_link [allData$rotten_tomatoes_link == ""] <- NA
+allData$critic_name [allData$critic_name == ""] <- NA
+allData$top_critic[allData$top_critic == ""] <- NA
+allData$publisher_name[allData$publisher_name == ""] <- NA
+allData$review_type[allData$review_type == ""] <- NA
+allData$review_score[allData$review_score == ""] <- NA
+allData$review_date[allData$review_date == ""] <- NA
+allData$review_content[allData$review_content == ""] <- NA
+data <- na.omit(allData)
 
 # Eliminar todas las filas que presenten RatinScore de Letra 
 data <- data[data$review_score != "A", ]
@@ -31,23 +35,25 @@ data <- data[data$review_score != "F", ]
 data <- data[data$review_score != "C  -", ]
 data <- data[data$review_score != "A  -", ]
 
+# Eliminar todas las filas que presenten RatinScore de valor 0 
+data <- data[data$review_score != "0", ]
+
+data2 <- data
+
 #reemplazar review_score con columna de proporcion equivalente, esto evita los rating con valores muy diferentes. como por ejemplo (1/10, 10/100, 1/4, etc.) 
 require(stringr)
-aux <- str_split_fixed(data$review_score,"/",n=2)
-review_score <- data.frame("new"=as.numeric(aux[,1])/as.numeric(aux[,2]))
-data <- data[,-6]
-data$review_score <- review_score
-data <- data[data$review_score != 0,]
-data <- data[data$review_score != Inf,]
-summary(data,maxsum=20)
+aux <- str_split_fixed(data2$review_score,"/",n=2)
+review_score <- c(as.numeric(aux[,1])/as.numeric(aux[,2]))
+data2 <- data2[,-6]
+data2$review_score <- review_score
+data2 <- data2[data$review_score != 0,]
+data2 <- data2[data$review_score != Inf,]
+summary(data2,maxsum=20)
 
 
 #Conjunto de textos relacionados a cada categoria.
-corpus <- Corpus(VectorSource(data$review_content))
+corpus <- Corpus(VectorSource(data2$review_content))
 print(corpus)
-#summary(corpus)
-#inspect(corpus)
-#corpus[[1]]$content
 
 #Pasar todos los elementos a minusculas
 corpus <- tm_map(corpus, content_transformer(tolower))
@@ -69,18 +75,19 @@ corpus <- tm_map(corpus, stripWhitespace)
 
 #### Aplicando el metodo
 # Ver filtros persoalizados para analizar bigramas (ejm. cuenta corriente)
-matrix <- DocumentTermMatrix(corpus[1:10000])
+matrix <- DocumentTermMatrix(corpus[1:3000])
 sparse <- as.compressed.matrix(matrix) 
 
 # Relacion de datos 1/3.
-f <- tune.maxent(sparse[1:3500,],toString(data$review_score.new[1:3500]),nfold = 3, showall = TRUE, verbose = TRUE)
+f <- tune.maxent(sparse[1:1500,],toString(data2$review_score[1:1500]),nfold = 3, showall = TRUE, verbose = TRUE)
 print(f)
 
-model <- maxent(sparse[1:3500,],data$review_score.new[1:3500],l1_regularizer = 0.0, l2_regularizer = 1.0, use_sgd = FALSE, set_heldout = 0, verbose = FALSE)
+model <- maxent(sparse[1:3500,],data2$review_score[1:3500],l1_regularizer = 0.0, l2_regularizer = 1.0, use_sgd = FALSE, set_heldout = 0, verbose = FALSE)
 
-results <- predict(model,sparse[3501:10000,])
+results <- predict(model,sparse[3501:5006,])
 
 #Probabilidad de que alguno de estos casos pertenezcan a una de las categorias (columnas?)
 
 #Hay que identificar cuales osn las etiquetas (label) relevantes
+
 
